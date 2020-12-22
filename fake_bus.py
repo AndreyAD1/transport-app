@@ -18,7 +18,7 @@ async def run_bus(url, bus_id, route):
                         'lng': longitude,
                         'route': bus_id
                     }
-                    await ws.send_message(json.dumps(response))
+                    await ws.send_message(json.dumps(response, ensure_ascii=False))
                 except ConnectionClosed:
                     break
                 await trio.sleep(1)
