@@ -1,4 +1,3 @@
-import itertools
 import json
 import os
 from sys import stderr
@@ -10,7 +9,7 @@ from trio_websocket import open_websocket_url, ConnectionClosed
 async def run_bus(url, bus_id, route):
     try:
         async with open_websocket_url(url) as ws:
-            for latitude, longitude in itertools.cycle(route):
+            for latitude, longitude in route:
                 try:
                     response = {
                         'busId': bus_id,
@@ -18,7 +17,12 @@ async def run_bus(url, bus_id, route):
                         'lng': longitude,
                         'route': bus_id
                     }
-                    await ws.send_message(json.dumps(response, ensure_ascii=False))
+                    await ws.send_message(
+                        json.dumps(
+                            response,
+                            ensure_ascii=False
+                        )
+                    )
                 except ConnectionClosed:
                     break
                 await trio.sleep(1)
