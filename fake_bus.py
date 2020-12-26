@@ -1,3 +1,4 @@
+from itertools import cycle
 import json
 import os
 from sys import stderr
@@ -9,7 +10,7 @@ from trio_websocket import open_websocket_url, ConnectionClosed
 async def run_bus(url, bus_id, route):
     try:
         async with open_websocket_url(url) as ws:
-            for latitude, longitude in route:
+            for latitude, longitude in cycle(route):
                 try:
                     response = {
                         'busId': bus_id,
@@ -25,7 +26,7 @@ async def run_bus(url, bus_id, route):
                     )
                 except ConnectionClosed:
                     break
-                await trio.sleep(1)
+                await trio.sleep(0.1)
     except OSError as ose:
         print('Connection attempt failed: %s' % ose, file=stderr)
 
