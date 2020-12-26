@@ -39,15 +39,16 @@ async def handle_coordinates(request):
 async def talk_to_browser(request):
     ws = await request.accept()
     logger.debug(f'New browser connection has been established')
+    browser_message = await ws.get_message()
+    logger.debug(f'Received the browser message: {browser_message}')
     while True:
         try:
-            browser_message = await ws.get_message()
-            logger.debug(f'Received the browser message: {browser_message}')
             response = {'msgType': 'Buses', 'buses': list(buses.values())}
             await ws.send_message(json.dumps(response, ensure_ascii=False))
             logger.debug(f'Send the message: {response}')
         except ConnectionClosed:
             break
+        await trio.sleep(1)
 
 
 async def main():
