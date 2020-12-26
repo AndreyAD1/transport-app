@@ -1,10 +1,13 @@
 from functools import partial
+import json
 import logging
 
 import trio
 from trio_websocket import serve_websocket, ConnectionClosed
 
 logger = logging.getLogger(__file__)
+
+buses = {}
 
 
 async def handle_coordinates(request):
@@ -15,12 +18,19 @@ async def handle_coordinates(request):
             logger.debug(f'Received bus info: {message}')
         except ConnectionClosed:
             break
-        await trio.sleep(1)
 
 
 async def talk_to_browser(request):
-    logger.debug(f'Request handling started: {request}')
-    await trio.sleep(0)
+    ws = await request.accept()
+    logger.debug(f'New browser connection has been established')
+    while True:
+        try:
+            browser_message = await ws.get_message()
+            logger.debug(f'New browser message: {browser_message}')
+            response = {'msgType': 'Buses', 'buses': buses}
+            await ws.send_message(json.dumps(response, ensure_ascii=False))
+        except ConnectionClosed:
+            break
 
 
 async def main():
