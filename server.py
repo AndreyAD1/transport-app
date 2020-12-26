@@ -1,3 +1,4 @@
+from functools import partial
 import logging
 
 import trio
@@ -17,13 +18,29 @@ async def handle_coordinates(request):
         await trio.sleep(1)
 
 
+async def talk_to_browser(request):
+    logger.debug(f'Request handling started: {request}')
+    await trio.sleep(0)
+
+
 async def main():
-    await serve_websocket(
-        handle_coordinates,
-        '127.0.0.1',
-        8080,
-        ssl_context=None
-    )
+    async with trio.open_nursery() as nursery:
+        coordinate_handler = partial(
+            serve_websocket,
+            handle_coordinates,
+            '127.0.0.1',
+            8080,
+            None
+        )
+        browser_talker = partial(
+            serve_websocket,
+            talk_to_browser,
+            '127.0.0.1',
+            8000,
+            None
+        )
+        nursery.start_soon(coordinate_handler)
+        nursery.start_soon(browser_talker)
 
 
 if __name__ == '__main__':
