@@ -15,9 +15,25 @@ async def handle_coordinates(request):
     while True:
         try:
             message = await ws.get_message()
-            logger.debug(f'Received bus info: {message}')
+            logger.debug(f'Received the bus message: {message}')
         except ConnectionClosed:
+            logger.debug(f'Connection closed')
             break
+
+        try:
+            bus_info = json.loads(message)
+        except json.JSONDecodeError:
+            logger.error('Can not parse received message to JSON')
+            # TODO return an error to the client
+            continue
+
+        bus_id = bus_info.get('busId')
+        if bus_id is None:
+            logger.error('No key "busId" is in the received JSON')
+            # TODO return an error to the client
+            continue
+
+        buses[bus_id] = bus_info
 
 
 async def talk_to_browser(request):
@@ -26,9 +42,10 @@ async def talk_to_browser(request):
     while True:
         try:
             browser_message = await ws.get_message()
-            logger.debug(f'New browser message: {browser_message}')
-            response = {'msgType': 'Buses', 'buses': buses}
+            logger.debug(f'Received the browser message: {browser_message}')
+            response = {'msgType': 'Buses', 'buses': list(buses.values())}
             await ws.send_message(json.dumps(response, ensure_ascii=False))
+            logger.debug(f'Send the message: {response}')
         except ConnectionClosed:
             break
 
