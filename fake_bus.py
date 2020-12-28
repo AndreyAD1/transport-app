@@ -7,13 +7,13 @@ from sys import stderr
 import trio
 from trio_websocket import open_websocket_url, ConnectionClosed
 
-BUS_NUMBER_PER_ROUTE = 3
+BUS_NUMBER_PER_ROUTE = 35
 SERVER_URL = 'ws://127.0.0.1:8080'
 
 
 def load_routes(directory_path='routes'):
     for filename in os.listdir(directory_path):
-        if filename.endswith(".json"):
+        if filename.endswith('.json'):
             filepath = os.path.join(directory_path, filename)
             with open(filepath, 'r', encoding='utf8') as file:
                 yield json.load(file)
@@ -32,13 +32,13 @@ async def send_updates(url, receive_channel):
     try:
         async with open_websocket_url(url) as ws:
             async for bus_id, latitude, longitude, route_name in receive_channel:
+                response = {
+                    'busId': bus_id,
+                    'lat': latitude,
+                    'lng': longitude,
+                    'route': route_name
+                }
                 try:
-                    response = {
-                        'busId': bus_id,
-                        'lat': latitude,
-                        'lng': longitude,
-                        'route': route_name
-                    }
                     await ws.send_message(
                         json.dumps(
                             response,
@@ -47,7 +47,6 @@ async def send_updates(url, receive_channel):
                     )
                 except ConnectionClosed:
                     break
-                await trio.sleep(0.1)
     except OSError as ose:
         print('Connection attempt failed: %s' % ose, file=stderr)
 

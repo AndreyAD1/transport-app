@@ -15,7 +15,7 @@ async def handle_coordinates(request):
     while True:
         try:
             message = await ws.get_message()
-            logger.debug(f'Received the bus message: {message}')
+            logger.debug(f'Receive the bus message: {message}')
         except ConnectionClosed:
             logger.debug(f'Connection closed')
             break
