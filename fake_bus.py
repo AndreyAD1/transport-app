@@ -9,6 +9,7 @@ from trio_websocket import open_websocket_url, ConnectionClosed
 
 BUS_NUMBER_PER_ROUTE = 35
 SERVER_URL = 'ws://127.0.0.1:8080'
+SOCKET_NUMBER = 10
 
 
 def load_routes(directory_path='routes'):
@@ -53,7 +54,7 @@ async def send_updates(url, receive_channel):
 
 async def main():
     async with trio.open_nursery() as nursery:
-        send_channel, receive_channel = trio.open_memory_channel(0)
+        channels = [trio.open_memory_channel(0) for _ in range(SOCKET_NUMBER)]
         for route in load_routes():
             for bus_index in range(BUS_NUMBER_PER_ROUTE):
                 bus_id = generate_bus_id(route['name'], bus_index)
@@ -62,6 +63,7 @@ async def main():
                     *route['coordinates'][random_index:],
                     *route['coordinates'][:random_index]
                 ]
+                send_channel, _ = random.choice(channels)
                 nursery.start_soon(
                     run_bus,
                     send_channel,
@@ -69,7 +71,8 @@ async def main():
                     bus_coordinates,
                     route['name']
                 )
-        nursery.start_soon(send_updates, SERVER_URL, receive_channel)
+        for send_channel, receive_channel in channels:
+            nursery.start_soon(send_updates, SERVER_URL, receive_channel)
 
 
 if __name__ == '__main__':
