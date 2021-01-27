@@ -49,7 +49,7 @@ async def send_updates(url, receive_channel):
         print('Connection attempt failed: %s' % ose, file=stderr)
 
 
-async def run_buses(server_url, route_number, buses_per_route):
+async def run_buses(server_url, route_number, buses_per_route, ws_number):
     async with trio.open_nursery() as nursery:
         send_channel, receive_channel = trio.open_memory_channel(0)
         for route in load_routes(route_number):
@@ -67,24 +67,39 @@ async def run_buses(server_url, route_number, buses_per_route):
                     bus_coordinates,
                     route['name']
                 )
-        nursery.start_soon(send_updates, server_url, receive_channel)
+        for _ in range(ws_number):
+            nursery.start_soon(send_updates, server_url, receive_channel)
 
 
 @click.command()
 @click.argument('server_url')
 @click.option(
     '--route_number',
-    type=click.INT,
+    required=True,
+    type=click.IntRange(1),
     help='The number of bus routes.'
 )
 @click.option(
     '--buses_per_route',
-    type=click.INT,
+    required=True,
+    type=click.IntRange(1),
     help='The number of buses per route.'
 )
-def main(server_url, route_number, buses_per_route):
+@click.option(
+    '--websocket_number',
+    default=1,
+    type=click.IntRange(1),
+    help='The number of open websockets.'
+)
+def main(server_url, route_number, buses_per_route, websocket_number):
     """Send bus coordinates to a server."""
-    trio.run(run_buses, server_url, route_number, buses_per_route)
+    trio.run(
+        run_buses,
+        server_url,
+        route_number,
+        buses_per_route,
+        websocket_number
+    )
 
 
 if __name__ == '__main__':
