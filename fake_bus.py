@@ -1,5 +1,6 @@
 from itertools import cycle, islice
 import json
+import logging
 import os
 import random
 from sys import stderr
@@ -7,6 +8,8 @@ from sys import stderr
 import click
 import trio
 from trio_websocket import open_websocket_url, ConnectionClosed
+
+logger = logging.getLogger(__file__)
 
 
 def load_routes(route_number, directory_path='routes'):
@@ -30,6 +33,7 @@ async def run_bus(send_channel, bus_id, bus_coordinates, route_name, timeout):
 async def send_updates(url, receive_channel):
     try:
         async with open_websocket_url(url) as ws:
+            logger.debug('Connect to a server')
             async for bus_id, latitude, longitude, route_name in receive_channel:
                 response = {
                     'busId': bus_id,
@@ -44,6 +48,7 @@ async def send_updates(url, receive_channel):
                             ensure_ascii=False
                         )
                     )
+                    logger.debug(f'Send message {response}')
                 except ConnectionClosed:
                     break
     except OSError as ose:
@@ -105,8 +110,19 @@ async def run_buses(server_url, route_number, buses_per_route, ws_number, emulat
     type=click.IntRange(1),
     help='The timeout to update bus coordinates (seconds).'
 )
-def main(server_url, route_number, buses_per_route, websocket_number, emulator_id, refresh_timeout):
+@click.option(
+    '-v',
+    '--verbose',
+    is_flag=True,
+    type=click.BOOL,
+    help='Output detailed log messages.'
+)
+def main(server_url, route_number, buses_per_route, websocket_number, emulator_id, refresh_timeout, verbose):
     """Send bus coordinates to a server."""
+    logging.basicConfig(level=logging.ERROR)
+    logger.setLevel(logging.ERROR)
+    if verbose:
+        logger.setLevel(logging.DEBUG)
     trio.run(
         run_buses,
         server_url,
