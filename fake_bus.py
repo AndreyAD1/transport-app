@@ -3,13 +3,27 @@ import json
 import logging
 import os
 import random
-from sys import stderr
 
 import click
 import trio
-from trio_websocket import open_websocket_url, ConnectionClosed
+from trio_websocket import open_websocket_url, ConnectionClosed, HandshakeError
 
 logger = logging.getLogger(__file__)
+
+
+def relaunch_on_disconnect(async_function):
+    async def wrapper(*args, **kwargs):
+        while True:
+            try:
+                logger.warning(f'Launch {async_function.__name__}')
+                await async_function(*args, **kwargs)
+            except ConnectionClosed:
+                logger.warning('Connection closed. Trying to reconnect.')
+            except HandshakeError:
+                logger.warning('No connection. Trying to establish it.')
+
+            await trio.sleep(1)
+    return wrapper
 
 
 def load_routes(route_number, directory_path='routes'):
@@ -30,6 +44,7 @@ async def run_bus(send_channel, bus_id, bus_coordinates, route_name, timeout):
         await trio.sleep(timeout)
 
 
+@relaunch_on_disconnect
 async def send_updates(url, receive_channel):
     try:
         async with open_websocket_url(url) as ws:
@@ -49,10 +64,12 @@ async def send_updates(url, receive_channel):
                         )
                     )
                     logger.debug(f'Send message {response}')
-                except ConnectionClosed:
-                    break
-    except OSError as ose:
-        print('Connection attempt failed: %s' % ose, file=stderr)
+                except ConnectionClosed as ex:
+                    logger.warning(f'Connection closed: {url}')
+                    raise ex
+    except HandshakeError as ex:
+        logger.error(f'Can not establish connection with {url}')
+        raise ex
 
 
 async def run_buses(
