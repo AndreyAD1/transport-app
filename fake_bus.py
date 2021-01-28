@@ -55,9 +55,16 @@ async def send_updates(url, receive_channel):
         print('Connection attempt failed: %s' % ose, file=stderr)
 
 
-async def run_buses(server_url, route_number, buses_per_route, ws_number, emulator_id, refresh_timeout):
+async def run_buses(
+        server_url,
+        route_number,
+        buses_per_route,
+        socket_number,
+        emulator_id,
+        refresh_timeout
+):
     async with trio.open_nursery() as nursery:
-        channels = [trio.open_memory_channel(0) for _ in range(ws_number)]
+        channels = [trio.open_memory_channel(0) for _ in range(socket_number)]
         for route in load_routes(route_number):
             for bus_index in range(buses_per_route):
                 bus_id = generate_bus_id(route['name'], bus_index)
@@ -119,7 +126,15 @@ async def run_buses(server_url, route_number, buses_per_route, ws_number, emulat
     type=click.BOOL,
     help='Output detailed log messages.'
 )
-def main(server_url, route_number, buses_per_route, websocket_number, emulator_id, refresh_timeout, verbose):
+def main(
+        server_url,
+        route_number,
+        buses_per_route,
+        websocket_number,
+        emulator_id,
+        refresh_timeout,
+        verbose
+):
     """Send bus coordinates to a server."""
     logging.basicConfig(level=logging.ERROR)
     logger.setLevel(logging.ERROR)
