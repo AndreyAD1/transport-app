@@ -36,19 +36,36 @@ async def handle_coordinates(request):
         buses[bus_id] = bus_info
 
 
-async def talk_to_browser(request):
-    ws = await request.accept()
-    logger.debug(f'New browser connection has been established')
-    browser_message = await ws.get_message()
-    logger.debug(f'Received the browser message: {browser_message}')
+async def send_to_browser(websocket):
     while True:
+        message = {'msgType': 'Buses', 'buses': list(buses.values())}
+        json_message = json.dumps(message, ensure_ascii=False)
         try:
-            response = {'msgType': 'Buses', 'buses': list(buses.values())}
-            await ws.send_message(json.dumps(response, ensure_ascii=False))
-            logger.debug(f'Send the message: {response}')
+            await websocket.send_message(json_message)
+            logger.debug(f'Sent the message: {message}')
         except ConnectionClosed:
             break
+
         await trio.sleep(1)
+
+
+async def listen_browser(websocket):
+    while True:
+        try:
+            browser_message = await websocket.get_message()
+            logger.debug(f'Received browser message: {browser_message}')
+        except ConnectionClosed:
+            break
+
+
+async def talk_with_browser(request):
+    ws = await request.accept()
+    logger.debug(f'New browser connection has been established')
+    async with trio.open_nursery() as nursery:
+        sender = partial(send_to_browser, ws)
+        listener = partial(listen_browser, ws)
+        nursery.start_soon(sender)
+        nursery.start_soon(listener)
 
 
 async def main():
@@ -62,7 +79,7 @@ async def main():
         )
         browser_talker = partial(
             serve_websocket,
-            talk_to_browser,
+            talk_with_browser,
             '127.0.0.1',
             8000,
             None
