@@ -7,7 +7,9 @@ from trio_websocket import serve_websocket, ConnectionClosed
 
 logger = logging.getLogger(__file__)
 
+# TODO Сделать глобальные переменные через каналы?
 buses = {}
+display_bounds = {}
 
 
 async def handle_coordinates(request):
@@ -36,9 +38,27 @@ async def handle_coordinates(request):
         buses[bus_id] = bus_info
 
 
+def is_inside(bus):
+    if not display_bounds:
+        return True
+
+    south_latitude = display_bounds['south_lat']
+    north_latitude = display_bounds['north_lat']
+    latitude_suits = south_latitude <= bus['lat'] <= north_latitude
+
+    west_longitude = display_bounds['west_lng']
+    east_longitude = display_bounds['east_lng']
+    longitude_suits = west_longitude <= bus['lng'] <= east_longitude
+
+    bus_is_inside_display = latitude_suits and longitude_suits
+    return bus_is_inside_display
+
+
 async def send_to_browser(websocket):
     while True:
-        message = {'msgType': 'Buses', 'buses': list(buses.values())}
+        buses_on_screen = [bus for bus in buses.values() if is_inside(bus)]
+        logger.debug(f'Displayed bus number {len(buses_on_screen)}')
+        message = {'msgType': 'Buses', 'buses': buses_on_screen}
         json_message = json.dumps(message, ensure_ascii=False)
         try:
             await websocket.send_message(json_message)
@@ -56,6 +76,21 @@ async def listen_browser(websocket):
             logger.debug(f'Received browser message: {browser_message}')
         except ConnectionClosed:
             break
+
+        warn_msg = 'Received the invalid browser message: {}'
+        try:
+            browser_msg_json = json.loads(browser_message)
+        except json.JSONDecodeError:
+            logger.warning(warn_msg.format(warn_msg))
+            continue
+
+        if browser_msg_json.get('msgType') == 'newBounds':
+            new_display_boundaries = browser_msg_json.get('data')
+            if new_display_boundaries:
+                display_bounds.update(new_display_boundaries)
+                logger.debug(f'Update display bounds: {display_bounds}')
+            else:
+                logger.warning(warn_msg.format(warn_msg))
 
 
 async def talk_with_browser(request):
