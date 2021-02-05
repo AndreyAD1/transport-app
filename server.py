@@ -34,8 +34,6 @@ class WindowBounds(metaclass=PrintClassWithAttrs):
 
     @classmethod
     def is_inside(cls, bus: Bus):
-        print(bus)
-        print(cls)
         if not all(
                 [
                     cls.south_latitude,
