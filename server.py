@@ -8,6 +8,7 @@ from trio_websocket import serve_websocket, ConnectionClosed
 
 logger = logging.getLogger(__file__)
 
+COORDINATE_NAMES = ['south_lat', 'north_lat', 'west_lng', 'east_lng']
 # TODO Сделать глобальные переменные через каналы?
 buses = {}
 
@@ -33,14 +34,14 @@ class WindowBounds:
         return f'WindowBounds: {attrs}'
 
     def is_inside(self, bus: Bus):
-        if not all(
-                [
-                    self.south_latitude,
-                    self.north_latitude,
-                    self.west_longitude,
-                    self.east_longitude
-                ]
-        ):
+        window_coords = [
+            self.south_latitude,
+            self.north_latitude,
+            self.west_longitude,
+            self.east_longitude
+        ]
+        if not all(window_coords):
+            logger.warning(f'Invalid window coordinates: {self}')
             return False
 
         latitude_suits = self.south_latitude <= bus.lat <= self.north_latitude
@@ -48,8 +49,11 @@ class WindowBounds:
         bus_is_inside_window = latitude_suits and longitude_suits
         return bus_is_inside_window
 
-
-window_bounds = WindowBounds()
+    def update(self, south_lat, north_lat, west_lng, east_lng):
+        self.south_latitude = south_lat
+        self.north_latitude = north_lat
+        self.west_longitude = west_lng
+        self.east_longitude = east_lng
 
 
 async def handle_bus_coordinates(request):
@@ -83,7 +87,7 @@ async def handle_bus_coordinates(request):
         )
 
 
-async def send_to_browser(websocket):
+async def send_to_browser(websocket, window_bounds: WindowBounds):
     while True:
         buses_on_screen = [
             asdict(b) for b in buses.values() if window_bounds.is_inside(b)
@@ -100,7 +104,7 @@ async def send_to_browser(websocket):
         await trio.sleep(1)
 
 
-async def listen_browser(websocket):
+async def listen_browser(websocket, window_bounds: WindowBounds):
     while True:
         try:
             browser_message = await websocket.get_message()
@@ -108,7 +112,7 @@ async def listen_browser(websocket):
         except ConnectionClosed:
             break
 
-        warn_msg = 'Received the invalid browser message: {}'
+        warn_msg = 'The invalid browser message received: {}'
         try:
             browser_msg_json = json.loads(browser_message)
         except json.JSONDecodeError:
@@ -118,11 +122,19 @@ async def listen_browser(websocket):
         if browser_msg_json.get('msgType') == 'newBounds':
             new_window_bounds = browser_msg_json.get('data')
             if new_window_bounds:
-                window_bounds.south_latitude = new_window_bounds['south_lat']
-                window_bounds.north_latitude = new_window_bounds['north_lat']
-                window_bounds.west_longitude = new_window_bounds['west_lng']
-                window_bounds.east_longitude = new_window_bounds['east_lng']
-                logger.debug(f'Update display bounds: {window_bounds}')
+                new_window_coords = [
+                    new_window_bounds.get(name) for name in COORDINATE_NAMES
+                ]
+                if all(new_window_coords):
+                    window_bounds.update(
+                        new_window_bounds.get('south_lat'),
+                        new_window_bounds.get('north_lat'),
+                        new_window_bounds.get('west_lng'),
+                        new_window_bounds.get('east_lng')
+                    )
+                    logger.debug(f'Update display bounds: {window_bounds}')
+                else:
+                    logger.warning(warn_msg.format(warn_msg))
             else:
                 logger.warning(warn_msg.format(warn_msg))
 
@@ -131,8 +143,9 @@ async def talk_with_browser(request):
     ws = await request.accept()
     logger.debug(f'New browser connection has been established')
     async with trio.open_nursery() as nursery:
-        sender = partial(send_to_browser, ws)
-        listener = partial(listen_browser, ws)
+        window_bounds = WindowBounds()
+        sender = partial(send_to_browser, ws, window_bounds)
+        listener = partial(listen_browser, ws, window_bounds)
         nursery.start_soon(sender)
         nursery.start_soon(listener)
 
