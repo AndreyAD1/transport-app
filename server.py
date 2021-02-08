@@ -3,6 +3,7 @@ from functools import partial
 import json
 import logging
 
+import click
 import trio
 from trio_websocket import serve_websocket, ConnectionClosed
 
@@ -150,27 +151,51 @@ async def talk_with_browser(request):
         nursery.start_soon(listener)
 
 
-async def main():
+async def start_server(bus_port, browser_port):
     async with trio.open_nursery() as nursery:
         coordinate_handler = partial(
             serve_websocket,
             handle_bus_coordinates,
             '127.0.0.1',
-            8080,
+            bus_port,
             None
         )
         browser_talker = partial(
             serve_websocket,
             talk_with_browser,
             '127.0.0.1',
-            8000,
+            browser_port,
             None
         )
         nursery.start_soon(coordinate_handler)
         nursery.start_soon(browser_talker)
 
 
-if __name__ == '__main__':
+@click.command()
+@click.option(
+    '--bus_port',
+    type=int,
+    help='A number of port for bus coordinates.'
+)
+@click.option(
+    '--browser_port',
+    type=int,
+    help='A number of port for browser messages.'
+)
+@click.option(
+    '-v',
+    '--verbose',
+    is_flag=True,
+    type=click.BOOL,
+    help='Output detailed log messages.'
+)
+def main(bus_port, browser_port, verbose):
     logging.basicConfig(level=logging.ERROR)
-    logger.setLevel(logging.DEBUG)
-    trio.run(main)
+    logger.setLevel(logging.INFO)
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+    trio.run(start_server, bus_port, browser_port)
+
+
+if __name__ == '__main__':
+    main()
