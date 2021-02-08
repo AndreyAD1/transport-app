@@ -20,34 +20,36 @@ class Bus:
     route: str
 
 
-class PrintClassWithAttrs(type):
+@dataclass
+class WindowBounds:
+    def __init__(self):
+        self.south_latitude = None
+        self.north_latitude = None
+        self.west_longitude = None
+        self.east_longitude = None
+
     def __str__(self):
         attrs = {n: v for n, v in vars(self).items() if not n.startswith('__')}
-        return f'{self.__name__}: {attrs}'
+        return f'WindowBounds: {attrs}'
 
-
-class WindowBounds(metaclass=PrintClassWithAttrs):
-    south_latitude = None
-    north_latitude = None
-    west_longitude = None
-    east_longitude = None
-
-    @classmethod
-    def is_inside(cls, bus: Bus):
+    def is_inside(self, bus: Bus):
         if not all(
                 [
-                    cls.south_latitude,
-                    cls.north_latitude,
-                    cls.west_longitude,
-                    cls.east_longitude
+                    self.south_latitude,
+                    self.north_latitude,
+                    self.west_longitude,
+                    self.east_longitude
                 ]
         ):
             return False
 
-        latitude_suits = cls.south_latitude <= bus.lat <= cls.north_latitude
-        longitude_suits = cls.west_longitude <= bus.lng <= cls.east_longitude
+        latitude_suits = self.south_latitude <= bus.lat <= self.north_latitude
+        longitude_suits = self.west_longitude <= bus.lng <= self.east_longitude
         bus_is_inside_window = latitude_suits and longitude_suits
         return bus_is_inside_window
+
+
+window_bounds = WindowBounds()
 
 
 async def handle_bus_coordinates(request):
@@ -84,7 +86,7 @@ async def handle_bus_coordinates(request):
 async def send_to_browser(websocket):
     while True:
         buses_on_screen = [
-            asdict(bus) for bus in buses.values() if WindowBounds.is_inside(bus)
+            asdict(b) for b in buses.values() if window_bounds.is_inside(b)
         ]
         logger.debug(f'Displayed bus number {len(buses_on_screen)}')
         message = {'msgType': 'Buses', 'buses': buses_on_screen}
@@ -116,11 +118,11 @@ async def listen_browser(websocket):
         if browser_msg_json.get('msgType') == 'newBounds':
             new_window_bounds = browser_msg_json.get('data')
             if new_window_bounds:
-                WindowBounds.south_latitude = new_window_bounds['south_lat']
-                WindowBounds.north_latitude = new_window_bounds['north_lat']
-                WindowBounds.west_longitude = new_window_bounds['west_lng']
-                WindowBounds.east_longitude = new_window_bounds['east_lng']
-                logger.debug(f'Update display bounds: {WindowBounds}')
+                window_bounds.south_latitude = new_window_bounds['south_lat']
+                window_bounds.north_latitude = new_window_bounds['north_lat']
+                window_bounds.west_longitude = new_window_bounds['west_lng']
+                window_bounds.east_longitude = new_window_bounds['east_lng']
+                logger.debug(f'Update display bounds: {window_bounds}')
             else:
                 logger.warning(warn_msg.format(warn_msg))
 
