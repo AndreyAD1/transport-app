@@ -49,21 +49,17 @@ async def send_updates(url, receive_channel):
     try:
         async with open_websocket_url(url) as ws:
             logger.debug('Connect to a server')
-            async for bus_id, latitude, longitude, route_name in receive_channel:
-                response = {
+            async for bus_id, latitude, longitude, name in receive_channel:
+                bus_info = {
                     'busId': bus_id,
                     'lat': latitude,
                     'lng': longitude,
-                    'route': route_name
+                    'route': name
                 }
                 try:
-                    await ws.send_message(
-                        json.dumps(
-                            response,
-                            ensure_ascii=False
-                        )
-                    )
-                    logger.debug(f'Send message {response}')
+                    json_message = json.dumps(bus_info, ensure_ascii=False)
+                    await ws.send_message(json_message)
+                    logger.debug(f'Send message {bus_info}')
                 except ConnectionClosed as ex:
                     logger.warning(f'Connection closed: {url}')
                     raise ex

@@ -1,0 +1,5 @@
+click == 7.1.2
+pytest == 6.2.2
+pytest-trio == 0.7.0
+trio == 0.17.0
+trio-websocket == 0.9.1

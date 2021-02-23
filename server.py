@@ -58,10 +58,10 @@ class WindowBounds:
 
 
 async def handle_bus_coordinates(request):
-    ws = await request.accept()
+    websocket = await request.accept()
     while True:
         try:
-            message = await ws.get_message()
+            message = await websocket.get_message()
             logger.debug(f'Receive the bus message: {message}')
         except ConnectionClosed:
             logger.debug(f'Connection closed')
@@ -70,8 +70,15 @@ async def handle_bus_coordinates(request):
         try:
             bus_info = json.loads(message)
         except json.JSONDecodeError:
-            logger.error('Can not parse received message to JSON')
-            # TODO return an error to the client
+            logger.error(
+                'Invalid request.  Can not unmarshal received message to JSON'
+            )
+            error_msg = {
+                'errors': ['Requires valid JSON'],
+                'msgType': 'Errors'
+            }
+            error_json = json.dumps(error_msg)
+            await websocket.send_message(error_json)
             continue
 
         bus_id = bus_info.get('busId')
@@ -118,6 +125,7 @@ async def listen_browser(websocket, window_bounds: WindowBounds):
             browser_msg_json = json.loads(browser_message)
         except json.JSONDecodeError:
             logger.warning(warn_msg.format(warn_msg))
+            # TODO Return an error
             continue
 
         if browser_msg_json.get('msgType') == 'newBounds':
