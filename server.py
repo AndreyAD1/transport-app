@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass, asdict
 from functools import partial
 import json
@@ -81,17 +82,27 @@ async def handle_bus_coordinates(request):
             await websocket.send_message(error_json)
             continue
 
-        bus_id = bus_info.get('busId')
-        if bus_id is None:
-            logger.error('No key "busId" is in the received JSON')
-            # TODO return an error to the client
-            continue
+        error_msg = {}
+        for field in dataclasses.fields(Bus):
+            bus_feature = bus_info.get(field.name)
+            if bus_feature is None:
+                logger.error(f'No key "{field.name}" is in the received JSON')
+                error_msg = {
+                    'errors': [f'Requires {field.name} specified'],
+                    'msgType': 'Errors'
+                }
+                error_json = json.dumps(error_msg)
+                await websocket.send_message(error_json)
+                break
 
-        buses[bus_id] = Bus(
-            bus_info.get('busId'),
-            bus_info.get('lat'),
-            bus_info.get('lng'),
-            bus_info.get('route')
+        if error_msg:
+            break
+
+        buses[bus_info['busId']] = Bus(
+            bus_info['busId'],
+            bus_info['lat'],
+            bus_info['lng'],
+            bus_info['route']
         )
 
 

@@ -17,5 +17,3 @@ async def test_invalid_bus_json():
             assert False, f'Can not unmarshal response to JSON: {response}'
 
         assert json_response == expected_response, 'Invalid JSON'
-
-
