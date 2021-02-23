@@ -96,7 +96,7 @@ async def handle_bus_coordinates(request):
                 break
 
         if error_msg:
-            break
+            continue
 
         buses[bus_info['busId']] = Bus(
             bus_info['busId'],
