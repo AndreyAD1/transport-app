@@ -12,6 +12,10 @@ logger = logging.getLogger(__file__)
 COORDINATE_NAMES = ['south_lat', 'north_lat', 'west_lng', 'east_lng']
 # TODO Сделать глобальные переменные через каналы?
 buses = {}
+INVALID_JSON_MESSAGE = {
+    'errors': ['Requires valid JSON'],
+    'msgType': 'Errors'
+}
 
 
 @dataclass
@@ -24,11 +28,10 @@ class Bus:
 
 @dataclass
 class WindowBounds:
-    def __init__(self):
-        self.south_latitude = None
-        self.north_latitude = None
-        self.west_longitude = None
-        self.east_longitude = None
+    south_latitude = None
+    north_latitude = None
+    west_longitude = None
+    east_longitude = None
 
     def __str__(self):
         attrs = {n: v for n, v in vars(self).items() if not n.startswith('__')}
@@ -73,12 +76,7 @@ async def handle_bus_coordinates(request):
             logger.error(
                 'Invalid request.  Can not unmarshal received message to JSON'
             )
-            error_msg = {
-                'errors': ['Requires valid JSON'],
-                'msgType': 'Errors'
-            }
-            error_json = json.dumps(error_msg)
-            await websocket.send_message(error_json)
+            await websocket.send_message(json.dumps(INVALID_JSON_MESSAGE))
             continue
 
         error_msg = {}
@@ -139,12 +137,13 @@ async def listen_browser(websocket, window_bounds: WindowBounds):
         except ConnectionClosed:
             break
 
+        # TODO Реализовать проверки так же, как это сделано для автобусов
         warn_msg = 'The invalid browser message received: {}'
         try:
             browser_msg_json = json.loads(browser_message)
         except json.JSONDecodeError:
             logger.warning(warn_msg.format(warn_msg))
-            # TODO Return an error
+            await websocket.send_message(json.dumps(INVALID_JSON_MESSAGE))
             continue
 
         if browser_msg_json.get('msgType') == 'newBounds':
