@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass, fields
 from functools import partial
 import json
 import logging
@@ -81,13 +81,32 @@ async def handle_bus_coordinates(request):
             await websocket.send_message(error_json)
             continue
 
-        bus_id = bus_info.get('busId')
-        if bus_id is None:
-            logger.error('No key "busId" is in the received JSON')
-            # TODO return an error to the client
+        error_msg = {}
+        for field_name in [f.name for f in fields(Bus)]:
+            try:
+                bus_feature = bus_info.get(field_name)
+            except AttributeError:
+                logger.error('The root element of received JSON is a list')
+                error_msg = {
+                    "errors": ["Requires a mapping JSON root element"],
+                    "msgType": "Errors"
+                }
+                await websocket.send_message(json.dumps(error_msg))
+                break
+
+            if bus_feature is None:
+                logger.error(f'No key "{field_name}" is in the received JSON')
+                error_msg = {
+                    "errors": [f"Requires {field_name} specified"],
+                    "msgType": "Errors"
+                }
+                await websocket.send_message(json.dumps(error_msg))
+                break
+
+        if error_msg:
             continue
 
-        buses[bus_id] = Bus(
+        buses[bus_info.get('busId')] = Bus(
             bus_info.get('busId'),
             bus_info.get('lat'),
             bus_info.get('lng'),
