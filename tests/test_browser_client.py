@@ -66,7 +66,7 @@ async def test_empty_list_json():
 @pytest.mark.parametrize(
     ['message', 'absent_field_name'],
     [
-        ({'msgType': 'errors'}, 'data'),
+        ({'msgType': 'newBounds'}, 'data'),
         (
             {
                 'data': {
@@ -77,6 +77,50 @@ async def test_empty_list_json():
                 }
             },
             'msgType'
+        ),
+        (
+            {
+                'msgType': 'newBounds',
+                'data': {
+                    'north_lat': random.uniform(0, 90),
+                    'south_lat': random.uniform(0, 90),
+                    'west_lng': random.uniform(0, 90)
+                }
+            },
+            'east_lng'
+        ),
+        (
+            {
+                'msgType': 'newBounds',
+                'data': {
+                    'east_lng': random.uniform(0, 90),
+                    'south_lat': random.uniform(0, 90),
+                    'west_lng': random.uniform(0, 90)
+                }
+            },
+            'north_lat'
+        ),
+        (
+            {
+                'msgType': 'newBounds',
+                'data': {
+                    'east_lng': random.uniform(0, 90),
+                    'north_lat': random.uniform(0, 90),
+                    'west_lng': random.uniform(0, 90)
+                }
+            },
+            'south_lat'
+        ),
+        (
+            {
+                'msgType': 'newBounds',
+                'data': {
+                    'east_lng': random.uniform(0, 90),
+                    'north_lat': random.uniform(0, 90),
+                    'south_lat': random.uniform(0, 90)
+                }
+            },
+            'west_lng'
         ),
     ]
 )

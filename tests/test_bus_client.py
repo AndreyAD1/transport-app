@@ -69,7 +69,7 @@ async def test_empty_list_json():
         'route'
     ]
 )
-async def test_invalid_bus_features(absent_field_name):
+async def test_absent_bus_features(absent_field_name):
     message = {
         'busId': 'Test',
         'lat': random.uniform(0, 90),

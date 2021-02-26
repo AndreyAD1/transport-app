@@ -164,6 +164,7 @@ async def listen_browser(websocket, window_bounds: WindowBounds):
             err_msg = verify_received_json(new_window_bounds, COORDINATE_NAMES)
             if err_msg:
                 await websocket.send_message(json.dumps(err_msg))
+                continue
 
             window_bounds.update(
                 new_window_bounds['south_lat'],
