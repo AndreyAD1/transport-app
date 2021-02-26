@@ -28,10 +28,10 @@ class Bus:
 
 @dataclass
 class WindowBounds:
-    south_latitude = None
-    north_latitude = None
-    west_longitude = None
-    east_longitude = None
+    south_latitude: int = None
+    north_latitude: int = None
+    west_longitude: int = None
+    east_longitude: int = None
 
     def __str__(self):
         attrs = {n: v for n, v in vars(self).items() if not n.startswith('__')}
