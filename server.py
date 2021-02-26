@@ -1,5 +1,4 @@
-import dataclasses
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass, fields
 from functools import partial
 import json
 import logging
@@ -13,6 +12,10 @@ logger = logging.getLogger(__file__)
 COORDINATE_NAMES = ['south_lat', 'north_lat', 'west_lng', 'east_lng']
 # TODO Сделать глобальные переменные через каналы?
 buses = {}
+INVALID_JSON_MESSAGE = {
+    'errors': ['Requires valid JSON'],
+    'msgType': 'Errors'
+}
 
 
 @dataclass
@@ -25,11 +28,10 @@ class Bus:
 
 @dataclass
 class WindowBounds:
-    def __init__(self):
-        self.south_latitude = None
-        self.north_latitude = None
-        self.west_longitude = None
-        self.east_longitude = None
+    south_latitude = None
+    north_latitude = None
+    west_longitude = None
+    east_longitude = None
 
     def __str__(self):
         attrs = {n: v for n, v in vars(self).items() if not n.startswith('__')}
@@ -74,35 +76,39 @@ async def handle_bus_coordinates(request):
             logger.error(
                 'Invalid request.  Can not unmarshal received message to JSON'
             )
-            error_msg = {
-                'errors': ['Requires valid JSON'],
-                'msgType': 'Errors'
-            }
-            error_json = json.dumps(error_msg)
-            await websocket.send_message(error_json)
+            await websocket.send_message(json.dumps(INVALID_JSON_MESSAGE))
             continue
 
         error_msg = {}
-        for field in dataclasses.fields(Bus):
-            bus_feature = bus_info.get(field.name)
-            if bus_feature is None:
-                logger.error(f'No key "{field.name}" is in the received JSON')
+        for field_name in [f.name for f in fields(Bus)]:
+            try:
+                bus_feature = bus_info.get(field_name)
+            except AttributeError:
+                logger.error('The root element of received JSON is a list')
                 error_msg = {
-                    'errors': [f'Requires {field.name} specified'],
-                    'msgType': 'Errors'
+                    "errors": ["Requires a mapping JSON root element"],
+                    "msgType": "Errors"
                 }
-                error_json = json.dumps(error_msg)
-                await websocket.send_message(error_json)
+                await websocket.send_message(json.dumps(error_msg))
+                break
+
+            if bus_feature is None:
+                logger.error(f'No key "{field_name}" is in the received JSON')
+                error_msg = {
+                    "errors": [f"Requires {field_name} specified"],
+                    "msgType": "Errors"
+                }
+                await websocket.send_message(json.dumps(error_msg))
                 break
 
         if error_msg:
             continue
 
-        buses[bus_info['busId']] = Bus(
-            bus_info['busId'],
-            bus_info['lat'],
-            bus_info['lng'],
-            bus_info['route']
+        buses[bus_info.get('busId')] = Bus(
+            bus_info.get('busId'),
+            bus_info.get('lat'),
+            bus_info.get('lng'),
+            bus_info.get('route')
         )
 
 
@@ -131,12 +137,13 @@ async def listen_browser(websocket, window_bounds: WindowBounds):
         except ConnectionClosed:
             break
 
+        # TODO Реализовать проверки так же, как это сделано для автобусов
         warn_msg = 'The invalid browser message received: {}'
         try:
             browser_msg_json = json.loads(browser_message)
         except json.JSONDecodeError:
             logger.warning(warn_msg.format(warn_msg))
-            # TODO Return an error
+            await websocket.send_message(json.dumps(INVALID_JSON_MESSAGE))
             continue
 
         if browser_msg_json.get('msgType') == 'newBounds':
