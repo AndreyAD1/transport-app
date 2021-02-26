@@ -60,6 +60,40 @@ class WindowBounds:
         self.east_longitude = east_lng
 
 
+def verify_request_body_is_json(request_body):
+    try:
+        json.loads(request_body)
+    except json.JSONDecodeError:
+        logger.error(
+            'Invalid request.  Can not unmarshal received message to JSON'
+        )
+        return INVALID_JSON_MESSAGE
+
+
+def verify_received_json(received_json, required_feature_names):
+    error_msg = {}
+    for feature_name in required_feature_names:
+        try:
+            feature = received_json.get(feature_name)
+        except AttributeError:
+            logger.error('The root element of received JSON is a list')
+            error_msg = {
+                "errors": ["Requires a mapping JSON root element"],
+                "msgType": "Errors"
+            }
+            break
+
+        if feature is None:
+            logger.error(f'No key "{feature_name}" is in the received JSON')
+            error_msg = {
+                "errors": [f"Requires {feature_name} specified"],
+                "msgType": "Errors"
+            }
+            break
+
+    return error_msg
+
+
 async def handle_bus_coordinates(request):
     websocket = await request.accept()
     while True:
@@ -70,45 +104,22 @@ async def handle_bus_coordinates(request):
             logger.debug(f'Connection closed')
             break
 
-        try:
-            bus_info = json.loads(message)
-        except json.JSONDecodeError:
-            logger.error(
-                'Invalid request.  Can not unmarshal received message to JSON'
-            )
-            await websocket.send_message(json.dumps(INVALID_JSON_MESSAGE))
+        err_msg = verify_request_body_is_json(message)
+        if err_msg:
+            await websocket.send_message(json.dumps(err_msg))
             continue
 
-        error_msg = {}
-        for field_name in [f.name for f in fields(Bus)]:
-            try:
-                bus_feature = bus_info.get(field_name)
-            except AttributeError:
-                logger.error('The root element of received JSON is a list')
-                error_msg = {
-                    "errors": ["Requires a mapping JSON root element"],
-                    "msgType": "Errors"
-                }
-                await websocket.send_message(json.dumps(error_msg))
-                break
-
-            if bus_feature is None:
-                logger.error(f'No key "{field_name}" is in the received JSON')
-                error_msg = {
-                    "errors": [f"Requires {field_name} specified"],
-                    "msgType": "Errors"
-                }
-                await websocket.send_message(json.dumps(error_msg))
-                break
-
-        if error_msg:
+        bus_info = json.loads(message)
+        err_msg = verify_received_json(bus_info, [f.name for f in fields(Bus)])
+        if err_msg:
+            await websocket.send_message(json.dumps(err_msg))
             continue
 
-        buses[bus_info.get('busId')] = Bus(
-            bus_info.get('busId'),
-            bus_info.get('lat'),
-            bus_info.get('lng'),
-            bus_info.get('route')
+        buses[bus_info['busId']] = Bus(
+            bus_info['busId'],
+            bus_info['lat'],
+            bus_info['lng'],
+            bus_info['route']
         )
 
 
@@ -137,33 +148,30 @@ async def listen_browser(websocket, window_bounds: WindowBounds):
         except ConnectionClosed:
             break
 
-        # TODO Реализовать проверки так же, как это сделано для автобусов
-        warn_msg = 'The invalid browser message received: {}'
-        try:
-            browser_msg_json = json.loads(browser_message)
-        except json.JSONDecodeError:
-            logger.warning(warn_msg.format(warn_msg))
-            await websocket.send_message(json.dumps(INVALID_JSON_MESSAGE))
+        err_msg = verify_request_body_is_json(browser_message)
+        if err_msg:
+            await websocket.send_message(json.dumps(err_msg))
             continue
 
-        if browser_msg_json.get('msgType') == 'newBounds':
-            new_window_bounds = browser_msg_json.get('data')
-            if new_window_bounds:
-                new_window_coords = [
-                    new_window_bounds.get(name) for name in COORDINATE_NAMES
-                ]
-                if all(new_window_coords):
-                    window_bounds.update(
-                        new_window_bounds.get('south_lat'),
-                        new_window_bounds.get('north_lat'),
-                        new_window_bounds.get('west_lng'),
-                        new_window_bounds.get('east_lng')
-                    )
-                    logger.debug(f'Update display bounds: {window_bounds}')
-                else:
-                    logger.warning(warn_msg.format(warn_msg))
-            else:
-                logger.warning(warn_msg.format(warn_msg))
+        browser_json_msg = json.loads(browser_message)
+        err_msg = verify_received_json(browser_json_msg, ['msgType', 'data'])
+        if err_msg:
+            await websocket.send_message(json.dumps(err_msg))
+            continue
+
+        if browser_json_msg['msgType'] == 'newBounds':
+            new_window_bounds = browser_json_msg['data']
+            err_msg = verify_received_json(new_window_bounds, COORDINATE_NAMES)
+            if err_msg:
+                await websocket.send_message(json.dumps(err_msg))
+
+            window_bounds.update(
+                new_window_bounds['south_lat'],
+                new_window_bounds['north_lat'],
+                new_window_bounds['west_lng'],
+                new_window_bounds['east_lng']
+            )
+            logger.debug(f'Update display bounds: {window_bounds}')
 
 
 async def talk_with_browser(request):
