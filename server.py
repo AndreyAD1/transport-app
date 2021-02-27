@@ -1,21 +1,34 @@
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass
 from functools import partial
 import json
 import logging
 
 import click
+from marshmallow import Schema, fields, post_load, ValidationError
 import trio
 from trio_websocket import serve_websocket, ConnectionClosed
 
 logger = logging.getLogger(__file__)
 
 COORDINATE_NAMES = ['south_lat', 'north_lat', 'west_lng', 'east_lng']
-# TODO Сделать глобальные переменные через каналы?
 buses = {}
 INVALID_JSON_MESSAGE = {
     'errors': ['Requires valid JSON'],
     'msgType': 'Errors'
 }
+MISSING_FIELD_MSG = ['Missing data for required field.']
+
+
+class Error:
+    def __init__(self, reasons):
+        self.reasons = reasons
+
+    def error_dict(self):
+        error_dict =  {
+            'errors': self.reasons,
+            'msgType': 'Errors'
+        }
+        return error_dict
 
 
 @dataclass
@@ -24,6 +37,17 @@ class Bus:
     lat: float
     lng: float
     route: str
+
+
+class BusSchema(Schema):
+    busId = fields.Str(required=True)
+    lat = fields.Float(required=True, min=-90, max=90)
+    lng = fields.Float(required=True, min=-180, max=180)
+    route = fields.Str(required=True)
+
+    @post_load
+    def make_bus(self, bus_features, **kwargs):
+        return Bus(**bus_features)
 
 
 @dataclass
@@ -104,23 +128,32 @@ async def handle_bus_coordinates(request):
             logger.debug(f'Connection closed')
             break
 
-        err_msg = verify_request_body_is_json(message)
-        if err_msg:
-            await websocket.send_message(json.dumps(err_msg))
+        bus_schema = BusSchema()
+        try:
+            bus = bus_schema.loads(message)
+        except json.JSONDecodeError:
+            logger.error(
+                'Invalid request.  Can not unmarshal received message to JSON'
+            )
+            error = Error(['Requires valid JSON'])
+            await websocket.send_message(json.dumps(error.error_dict()))
+            continue
+        except ValidationError as ex:
+            if ex.messages.get('_schema') == ['Invalid input type.']:
+                error = Error(["Requires a mapping JSON root element"])
+            elif MISSING_FIELD_MSG in ex.messages.values():
+                missing_fields = [
+                    f for f, v in ex.messages.items() if v == MISSING_FIELD_MSG
+                ]
+                msg_template = 'Requires {} specified'
+                error = Error([msg_template.format(f) for f in missing_fields])
+            else:
+                error = Error(ex.messages)
+
+            await websocket.send_message(json.dumps(error.error_dict()))
             continue
 
-        bus_info = json.loads(message)
-        err_msg = verify_received_json(bus_info, [f.name for f in fields(Bus)])
-        if err_msg:
-            await websocket.send_message(json.dumps(err_msg))
-            continue
-
-        buses[bus_info['busId']] = Bus(
-            bus_info['busId'],
-            bus_info['lat'],
-            bus_info['lng'],
-            bus_info['route']
-        )
+        buses[bus.busId] = bus
 
 
 async def send_to_browser(websocket, window_bounds: WindowBounds):

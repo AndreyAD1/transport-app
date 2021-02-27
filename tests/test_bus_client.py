@@ -1,3 +1,4 @@
+from collections import Counter
 import json
 import random
 
@@ -33,7 +34,12 @@ async def test_empty_dict_json():
         await ws.send_message('{}')
         response = await ws.get_message()
         expected_response = {
-            'errors': [f'Requires busId specified'],
+            'errors': [
+                'Requires route specified',
+                'Requires busId specified',
+                'Requires lng specified',
+                'Requires lat specified'
+            ],
             'msgType': 'Errors'
         }
         try:
@@ -41,7 +47,14 @@ async def test_empty_dict_json():
         except json.JSONDecodeError:
             assert False, f'Can not unmarshal response to JSON: {response}'
 
-        assert json_response == expected_response, 'Invalid JSON'
+        expected_errors = expected_response['errors']
+        returned_errors = json_response['errors']
+        valid_errors = Counter(returned_errors) == Counter(expected_errors)
+        assert valid_errors, 'Unexpected error list'
+
+        expected_response.pop('errors')
+        json_response.pop('errors')
+        assert json_response == expected_response, 'Unexpected response body'
 
 
 async def test_empty_list_json():
