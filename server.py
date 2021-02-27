@@ -24,7 +24,7 @@ class Error:
         self.reasons = reasons
 
     def error_dict(self):
-        error_dict =  {
+        error_dict = {
             'errors': self.reasons,
             'msgType': 'Errors'
         }
@@ -99,42 +99,34 @@ class BrowserMessageSchema(Schema):
     data = fields.Nested(WindowBoundsSchema())
 
 
-def verify_request_body_is_json(request_body):
+def parse_json_request(schema, request_body):
+    error = None
+    parsed_object = None
     try:
-        json.loads(request_body)
+        parsed_object = schema.loads(request_body)
     except json.JSONDecodeError:
         logger.error(
             'Invalid request.  Can not unmarshal received message to JSON'
         )
-        return INVALID_JSON_MESSAGE
+        error = Error(['Requires valid JSON'])
+    except ValidationError as ex:
+        if ex.messages.get('_schema') == ['Invalid input type.']:
+            error = Error(["Requires a mapping JSON root element"])
+        elif MISSING_FIELD_MSG in ex.messages.values():
+            missing_fields = [
+                f for f, v in ex.messages.items() if v == MISSING_FIELD_MSG
+            ]
+            msg_template = 'Requires {} specified'
+            error = Error([msg_template.format(f) for f in missing_fields])
+        else:
+            error = Error(ex.messages)
 
-
-def verify_received_json(received_json, required_feature_names):
-    error_msg = {}
-    for feature_name in required_feature_names:
-        try:
-            feature = received_json.get(feature_name)
-        except AttributeError:
-            logger.error('The root element of received JSON is a list')
-            error_msg = {
-                "errors": ["Requires a mapping JSON root element"],
-                "msgType": "Errors"
-            }
-            break
-
-        if feature is None:
-            logger.error(f'No key "{feature_name}" is in the received JSON')
-            error_msg = {
-                "errors": [f"Requires {feature_name} specified"],
-                "msgType": "Errors"
-            }
-            break
-
-    return error_msg
+    return error, parsed_object
 
 
 async def handle_bus_coordinates(request):
     websocket = await request.accept()
+    bus_schema = BusSchema()
     while True:
         try:
             message = await websocket.get_message()
@@ -143,28 +135,9 @@ async def handle_bus_coordinates(request):
             logger.debug(f'Connection closed')
             break
 
-        bus_schema = BusSchema()
-        try:
-            bus = bus_schema.loads(message)
-        except json.JSONDecodeError:
-            logger.error(
-                'Invalid request.  Can not unmarshal received message to JSON'
-            )
-            error = Error(['Requires valid JSON'])
-            await websocket.send_message(json.dumps(error.error_dict()))
-            continue
-        except ValidationError as ex:
-            if ex.messages.get('_schema') == ['Invalid input type.']:
-                error = Error(["Requires a mapping JSON root element"])
-            elif MISSING_FIELD_MSG in ex.messages.values():
-                missing_fields = [
-                    f for f, v in ex.messages.items() if v == MISSING_FIELD_MSG
-                ]
-                msg_template = 'Requires {} specified'
-                error = Error([msg_template.format(f) for f in missing_fields])
-            else:
-                error = Error(ex.messages)
+        error, bus = parse_json_request(bus_schema, message)
 
+        if error:
             await websocket.send_message(json.dumps(error.error_dict()))
             continue
 
@@ -197,29 +170,10 @@ async def listen_browser(websocket):
         except ConnectionClosed:
             break
 
-        try:
-            browser_message_schema.loads(browser_message)
-        except json.JSONDecodeError:
-            logger.error(
-                'Invalid request.  Can not unmarshal received message to JSON'
-            )
-            error = Error(['Requires valid JSON'])
-            await websocket.send_message(json.dumps(error.error_dict()))
-            continue
-        except ValidationError as ex:
-            if ex.messages.get('_schema') == ['Invalid input type.']:
-                error = Error(["Requires a mapping JSON root element"])
-            elif MISSING_FIELD_MSG in ex.messages.values():
-                missing_fields = [
-                    f for f, v in ex.messages.items() if v == MISSING_FIELD_MSG
-                ]
-                msg_template = 'Requires {} specified'
-                error = Error([msg_template.format(f) for f in missing_fields])
-            else:
-                error = Error(ex.messages)
+        error, _ = parse_json_request(browser_message_schema, browser_message)
 
+        if error:
             await websocket.send_message(json.dumps(error.error_dict()))
-            continue
 
 
 async def talk_with_browser(request):
