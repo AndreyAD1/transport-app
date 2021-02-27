@@ -49,8 +49,8 @@ async def test_empty_dict_json():
 
         expected_errors = expected_response['errors']
         returned_errors = json_response['errors']
-        valid_errors = Counter(returned_errors) == Counter(expected_errors)
-        assert valid_errors, 'Unexpected error list'
+        err_msg = 'Unexpected error list'
+        assert Counter(returned_errors) == Counter(expected_errors), err_msg
 
         expected_response.pop('errors')
         json_response.pop('errors')
