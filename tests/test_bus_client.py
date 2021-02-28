@@ -14,8 +14,8 @@ from trio_websocket import open_websocket_url
         'invalid_message',
     ]
 )
-async def test_invalid_bus_json(invalid_message):
-    async with open_websocket_url('ws://127.0.0.1:8080') as ws:
+async def test_invalid_bus_json(invalid_message, server_host, bus_port):
+    async with open_websocket_url(f'{server_host}:{bus_port}') as ws:
         await ws.send_message(invalid_message)
         response = await ws.get_message()
         expected_response = {
@@ -30,8 +30,8 @@ async def test_invalid_bus_json(invalid_message):
         assert json_response == expected_response, 'Invalid JSON'
 
 
-async def test_empty_dict_json():
-    async with open_websocket_url('ws://127.0.0.1:8080') as ws:
+async def test_empty_dict_json(server_host, bus_port):
+    async with open_websocket_url(f'{server_host}:{bus_port}') as ws:
         await ws.send_message('{}')
         response = await ws.get_message()
         expected_response = {
@@ -58,8 +58,8 @@ async def test_empty_dict_json():
         assert json_response == expected_response, 'Unexpected response body'
 
 
-async def test_empty_list_json():
-    async with open_websocket_url('ws://127.0.0.1:8080') as ws:
+async def test_empty_list_json(server_host, bus_port):
+    async with open_websocket_url(f'{server_host}:{bus_port}') as ws:
         await ws.send_message('[]')
         response = await ws.get_message()
         expected_response = {
@@ -83,7 +83,7 @@ async def test_empty_list_json():
         'route'
     ]
 )
-async def test_absent_bus_features(absent_field_name):
+async def test_absent_bus_features(absent_field_name, server_host, bus_port):
     message = {
         'busId': 'Test',
         'lat': random.uniform(-90, 90),
@@ -91,7 +91,7 @@ async def test_absent_bus_features(absent_field_name):
         'route': 'Test Route name'
     }
     message.pop(absent_field_name)
-    async with open_websocket_url('ws://127.0.0.1:8080') as ws:
+    async with open_websocket_url(f'{server_host}:{bus_port}') as ws:
         await ws.send_message(json.dumps(message))
         response = await ws.get_message()
         expected_response = {
@@ -153,7 +153,12 @@ async def test_absent_bus_features(absent_field_name):
         [{'route': {}}, ['Not a valid string.']],
     ]
 )
-async def test_invalid_bus_features(invalid_field, expected_error_msg):
+async def test_invalid_bus_features(
+        invalid_field,
+        expected_error_msg,
+        server_host,
+        bus_port
+):
     correct_message = {
         'busId': 'Test',
         'lat': random.uniform(-90, 90),
@@ -161,7 +166,7 @@ async def test_invalid_bus_features(invalid_field, expected_error_msg):
         'route': 'Test Route name'
     }
     invalid_message = {**correct_message, **invalid_field}
-    async with open_websocket_url('ws://127.0.0.1:8080') as ws:
+    async with open_websocket_url(f'{server_host}:{bus_port}') as ws:
         await ws.send_message(json.dumps(invalid_message))
         with trio.move_on_after(2) as cancel_scope:
             response = await ws.get_message()
