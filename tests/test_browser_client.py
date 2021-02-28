@@ -246,3 +246,61 @@ async def test_invalid_window_coordinates(invalid_field, expected_error_msg):
             'msgType': 'Errors'
         }
         assert json_response == expected_response, 'Unexpected response'
+
+
+@pytest.mark.parametrize(
+    ['invalid_coordinate_type', 'expected_error_msg'],
+    [
+        [
+            'invalid_latitudes',
+            ['south_lat should be less than north_lat']
+        ],
+        [
+            'invalid_longitudes',
+            ['west_lng should be less than east_lng']
+        ]
+    ]
+)
+async def test_invalid_bounds(invalid_coordinate_type, expected_error_msg):
+    if invalid_coordinate_type == 'invalid_latitudes':
+        north_lat = random.uniform(-90, 89)
+        south_lat = random.uniform(north_lat, 90)
+        east_lng = random.uniform(-179, 180)
+        west_lng = random.uniform(-180, east_lng)
+    else:
+        north_lat = random.uniform(-89, 90)
+        south_lat = random.uniform(-90, north_lat)
+        east_lng = random.uniform(-180, 179)
+        west_lng = random.uniform(east_lng, 180)
+
+    invalid_message = {
+        'msgType': 'newBounds',
+        'data': {
+            'west_lng': west_lng,
+            'east_lng': east_lng,
+            'north_lat': north_lat,
+            'south_lat': south_lat
+        }
+    }
+    async with open_websocket_url('ws://127.0.0.1:8000') as ws:
+        await ws.get_message()
+        await ws.send_message(json.dumps(invalid_message))
+        with trio.move_on_after(2) as cancel_scope:
+            response = await ws.get_message()
+
+        if cancel_scope.cancelled_caught:
+            error_message = 'Server does not respond if message was {}'
+            assert False, error_message.format(invalid_message)
+
+        try:
+            json_response = json.loads(response)
+        except json.JSONDecodeError:
+            assert False, f'Can not unmarshal response to JSON: {response}'
+
+        expected_response = {
+            'errors': {
+                'data': {'_schema': expected_error_msg}
+            },
+            'msgType': 'Errors'
+        }
+        assert json_response == expected_response, 'Unexpected response'
