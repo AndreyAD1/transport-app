@@ -86,10 +86,22 @@ class WindowBounds:
 
 
 class WindowBoundsSchema(Schema):
-    south_lat = fields.Float(required=True, min=-90, max=90)
-    north_lat = fields.Float(required=True, min=-90, max=90)
-    west_lng = fields.Float(required=True, min=-180, max=180)
-    east_lng = fields.Float(required=True, min=-180, max=180)
+    south_lat = fields.Float(
+        required=True,
+        validate=validate.Range(min=-90, max=90)
+    )
+    north_lat = fields.Float(
+        required=True,
+        validate=validate.Range(min=-90, max=90)
+    )
+    west_lng = fields.Float(
+        required=True,
+        validate=validate.Range(min=-180, max=180)
+    )
+    east_lng = fields.Float(
+        required=True,
+        validate=validate.Range(min=-180, max=180)
+    )
 
     @post_load
     def update_window_bounds(self, window_bounds, **kwargs):
