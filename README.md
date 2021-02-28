@@ -17,7 +17,7 @@ Download an archive containing bus route coordinates [here](https://dvmn.org/fil
 ```shell
 pip install -r requirements.txt
 ```
-Consider that a virtual environment provides a better isolation.
+Consider that a virtual environment provides better isolation.
 
 ### Quick Start
 This repository contains a server and its client simulating buses. 
