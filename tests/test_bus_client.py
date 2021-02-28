@@ -3,6 +3,7 @@ import json
 import random
 
 import pytest
+import trio
 from trio_websocket import open_websocket_url
 
 
@@ -85,8 +86,8 @@ async def test_empty_list_json():
 async def test_absent_bus_features(absent_field_name):
     message = {
         'busId': 'Test',
-        'lat': random.uniform(0, 90),
-        'lng': random.uniform(0, 90),
+        'lat': random.uniform(-90, 90),
+        'lng': random.uniform(-90, 90),
         'route': 'Test Route name'
     }
     message.pop(absent_field_name)
@@ -103,3 +104,46 @@ async def test_absent_bus_features(absent_field_name):
             assert False, f'Can not unmarshal response to JSON: {response}'
 
         assert json_response == expected_response, 'Invalid JSON'
+
+
+@pytest.mark.de
+@pytest.mark.parametrize(
+    ['invalid_field', 'expected_error_msg'],
+    [
+        [{'busId': ''}, ['???']],
+        [{'busId': 1}, ['Not a valid string.']],
+        [{'busId': []}, ['Not a valid string.']],
+        [{'busId': [1, 2]}, ['Not a valid string.']],
+        [{'busId': {}}, ['Not a valid string.']],
+        [{'busId': {'id': 1}}, ['Not a valid string.']],
+    ]
+)
+async def test_invalid_bus_features(invalid_field, expected_error_msg):
+    correct_message = {
+        'busId': 'Test',
+        'lat': random.uniform(-90, 90),
+        'lng': random.uniform(-90, 90),
+        'route': 'Test Route name'
+    }
+    invalid_message = {**correct_message, **invalid_field}
+    async with open_websocket_url('ws://127.0.0.1:8080') as ws:
+        await ws.send_message(json.dumps(invalid_message))
+        with trio.move_on_after(2) as cancel_scope:
+            response = await ws.get_message()
+
+        if cancel_scope.cancelled_caught:
+            error_message = 'Server does not respond if message was {}'
+            assert False, error_message.format(invalid_message)
+
+        try:
+            json_response = json.loads(response)
+        except json.JSONDecodeError:
+            assert False, f'Can not unmarshal response to JSON: {response}'
+
+        expected_response = {
+            'errors': {
+                list(invalid_field.keys())[0]: expected_error_msg
+            },
+            'msgType': 'Errors'
+        }
+        assert json_response == expected_response, 'Unexpected response'
