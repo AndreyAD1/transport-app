@@ -110,7 +110,7 @@ async def test_absent_bus_features(absent_field_name):
 @pytest.mark.parametrize(
     ['invalid_field', 'expected_error_msg'],
     [
-        [{'busId': ''}, ['???']],
+        [{'busId': ''}, ['Shorter than minimum length 1.']],
         [{'busId': 1}, ['Not a valid string.']],
         [{'busId': []}, ['Not a valid string.']],
         [{'busId': [1, 2]}, ['Not a valid string.']],

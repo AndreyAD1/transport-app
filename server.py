@@ -4,7 +4,7 @@ import json
 import logging
 
 import click
-from marshmallow import Schema, fields, post_load, ValidationError
+from marshmallow import Schema, fields, post_load, ValidationError, validate
 import trio
 from trio_websocket import serve_websocket, ConnectionClosed
 
@@ -40,7 +40,7 @@ class Bus:
 
 
 class BusSchema(Schema):
-    busId = fields.Str(required=True)
+    busId = fields.Str(required=True, validate=validate.Length(min=1))
     lat = fields.Float(required=True, min=-90, max=90)
     lng = fields.Float(required=True, min=-180, max=180)
     route = fields.Str(required=True)
