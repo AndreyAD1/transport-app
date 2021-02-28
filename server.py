@@ -41,9 +41,12 @@ class Bus:
 
 class BusSchema(Schema):
     busId = fields.Str(required=True, validate=validate.Length(min=1))
-    lat = fields.Float(required=True, min=-90, max=90)
-    lng = fields.Float(required=True, min=-180, max=180)
-    route = fields.Str(required=True)
+    lat = fields.Float(required=True, validate=validate.Range(min=-90, max=90))
+    lng = fields.Float(
+        required=True,
+        validate=validate.Range(min=-180, max=180)
+    )
+    route = fields.Str(required=True, validate=validate.Length(min=1))
 
     @post_load
     def make_bus(self, bus_features, **kwargs):

@@ -113,9 +113,24 @@ async def test_absent_bus_features(absent_field_name):
         [{'busId': ''}, ['Shorter than minimum length 1.']],
         [{'busId': 1}, ['Not a valid string.']],
         [{'busId': []}, ['Not a valid string.']],
-        [{'busId': [1, 2]}, ['Not a valid string.']],
         [{'busId': {}}, ['Not a valid string.']],
-        [{'busId': {'id': 1}}, ['Not a valid string.']],
+        [
+            {'lat': -90.1},
+            [
+                'Must be greater than or equal to -90 and less than or ' 
+                'equal to 90.'
+            ]
+        ],
+        [
+            {'lat': 90.1},
+            [
+                'Must be greater than or equal to -90 and less than or '
+                'equal to 90.'
+            ]
+        ],
+        [{'lat': ''}, ['Not a valid number.']],
+        [{'lat': []}, ['Not a valid number.']],
+        [{'lat': {}}, ['Not a valid number.']],
     ]
 )
 async def test_invalid_bus_features(invalid_field, expected_error_msg):
