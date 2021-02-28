@@ -14,8 +14,12 @@ from trio_websocket import open_websocket_url
         'invalid_message',
     ]
 )
-async def test_invalid_browser_json(invalid_message):
-    async with open_websocket_url('ws://127.0.0.1:8000') as ws:
+async def test_invalid_browser_json(
+        invalid_message,
+        server_host,
+        browser_port
+):
+    async with open_websocket_url(f'{server_host}:{browser_port}') as ws:
         await ws.get_message()
         await ws.send_message(invalid_message)
         response = await ws.get_message()
@@ -31,8 +35,8 @@ async def test_invalid_browser_json(invalid_message):
         assert json_response == expected_response, 'Invalid JSON'
 
 
-async def test_empty_dict_json():
-    async with open_websocket_url('ws://127.0.0.1:8000') as ws:
+async def test_empty_dict_json(server_host, browser_port):
+    async with open_websocket_url(f'{server_host}:{browser_port}') as ws:
         await ws.get_message()
         await ws.send_message('{}')
         response = await ws.get_message()
@@ -51,8 +55,8 @@ async def test_empty_dict_json():
         assert Counter(json_response) == Counter(expected_response), err_msg
 
 
-async def test_empty_list_json():
-    async with open_websocket_url('ws://127.0.0.1:8000') as ws:
+async def test_empty_list_json(server_host, browser_port):
+    async with open_websocket_url(f'{server_host}:{browser_port}') as ws:
         await ws.get_message()
         await ws.send_message('[]')
         response = await ws.get_message()
@@ -117,8 +121,13 @@ async def test_empty_list_json():
         ),
     ]
 )
-async def test_absent_fields(message, absent_field_name):
-    async with open_websocket_url('ws://127.0.0.1:8000') as ws:
+async def test_absent_fields(
+        message,
+        absent_field_name,
+        server_host,
+        browser_port
+):
+    async with open_websocket_url(f'{server_host}:{browser_port}') as ws:
         await ws.get_message()
         await ws.send_message(json.dumps(message))
         response = await ws.get_message()
@@ -211,7 +220,12 @@ async def test_absent_fields(message, absent_field_name):
         ],
     ]
 )
-async def test_invalid_window_coordinates(invalid_field, expected_error_msg):
+async def test_invalid_window_coordinates(
+        invalid_field,
+        expected_error_msg,
+        server_host,
+        browser_port
+):
     north_lat = random.uniform(-89, 90)
     east_lng = random.uniform(-179, 180)
     correct_data = {
@@ -222,7 +236,7 @@ async def test_invalid_window_coordinates(invalid_field, expected_error_msg):
     }
     invalid_data = {**correct_data, **invalid_field}
     invalid_message = {'msgType': 'newBounds', 'data': invalid_data}
-    async with open_websocket_url('ws://127.0.0.1:8000') as ws:
+    async with open_websocket_url(f'{server_host}:{browser_port}') as ws:
         await ws.get_message()
         await ws.send_message(json.dumps(invalid_message))
         with trio.move_on_after(2) as cancel_scope:
@@ -261,7 +275,12 @@ async def test_invalid_window_coordinates(invalid_field, expected_error_msg):
         ]
     ]
 )
-async def test_invalid_bounds(invalid_coordinate_type, expected_error_msg):
+async def test_invalid_bounds(
+        invalid_coordinate_type,
+        expected_error_msg,
+        server_host,
+        browser_port
+):
     if invalid_coordinate_type == 'invalid_latitudes':
         north_lat = random.uniform(-90, 89)
         south_lat = random.uniform(north_lat, 90)
@@ -282,7 +301,7 @@ async def test_invalid_bounds(invalid_coordinate_type, expected_error_msg):
             'south_lat': south_lat
         }
     }
-    async with open_websocket_url('ws://127.0.0.1:8000') as ws:
+    async with open_websocket_url(f'{server_host}:{browser_port}') as ws:
         await ws.get_message()
         await ws.send_message(json.dumps(invalid_message))
         with trio.move_on_after(2) as cancel_scope:
