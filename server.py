@@ -5,6 +5,7 @@ import logging
 
 import click
 from marshmallow import Schema, fields, post_load, ValidationError, validate
+from marshmallow import validates_schema
 import trio
 from trio_websocket import serve_websocket, ConnectionClosed
 
@@ -102,6 +103,14 @@ class WindowBoundsSchema(Schema):
         required=True,
         validate=validate.Range(min=-180, max=180)
     )
+
+    @validates_schema
+    def validate_window_boundaries(self, data, **kwargs):
+        if data['south_lat'] >= data['north_lat']:
+            raise ValidationError('south_lat should be less than north_lat')
+
+        if data['west_lng'] >= data['east_lng']:
+            raise ValidationError('west_lng should be less than east_lng')
 
     @post_load
     def update_window_bounds(self, window_bounds, **kwargs):

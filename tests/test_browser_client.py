@@ -138,7 +138,6 @@ async def test_absent_fields(message, absent_field_name):
         assert json_response == expected_response, 'Invalid JSON'
 
 
-@pytest.mark.de
 @pytest.mark.parametrize(
     ['invalid_field', 'expected_error_msg'],
     [
