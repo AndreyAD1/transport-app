@@ -108,11 +108,6 @@ class WindowBoundsSchema(Schema):
 
         if data['west_lng'] >= data['east_lng']:
             raise ValidationError('west_lng should be less than east_lng')
-    #
-    # @post_load
-    # def update_window_bounds(self, window_bounds, window, **kwargs):
-    #     logger.debug(f'Update display bounds: {window_bounds}')
-    #     return WindowBounds.update(**window_bounds)
 
 
 class BrowserMessageSchema(Schema):
