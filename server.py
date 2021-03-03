@@ -233,11 +233,13 @@ async def start_server(bus_port, browser_port):
 @click.command()
 @click.option(
     '--bus_port',
+    default=8080,
     type=int,
     help='A number of port for bus coordinates.'
 )
 @click.option(
     '--browser_port',
+    default=8000,
     type=int,
     help='A number of port for browser messages.'
 )

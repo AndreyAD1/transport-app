@@ -106,12 +106,14 @@ async def run_buses(
 @click.option(
     '--route_number',
     required=True,
+    default=1000,
     type=click.IntRange(1),
     help='The number of bus routes.'
 )
 @click.option(
     '--buses_per_route',
     required=True,
+    default=3,
     type=click.IntRange(1),
     help='The number of buses per route.'
 )
