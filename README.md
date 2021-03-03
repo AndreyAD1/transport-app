@@ -5,7 +5,7 @@ The backend part of public transport application.
 This is the training project created to improve the skills of asynchronous code.
 The training courses for web-developers - [dvmn.org](https://dvmn.org/).
 
-##Getting Started
+## Getting Started
 ### Prerequisites
 Python v3.9 should be already installed. 
 Download a frontend web application [here](https://github.com/devmanorg/buses-on-the-map).
