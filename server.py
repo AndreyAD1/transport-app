@@ -60,29 +60,27 @@ class WindowBounds:
     west_longitude: int = None
     east_longitude: int = None
 
-    @classmethod
-    def is_inside(cls, bus: Bus):
+    def is_inside(self, bus: Bus):
         window_coords = [
-            cls.south_latitude,
-            cls.north_latitude,
-            cls.west_longitude,
-            cls.east_longitude
+            self.south_latitude,
+            self.north_latitude,
+            self.west_longitude,
+            self.east_longitude
         ]
         if not all(window_coords):
             logger.warning(f'Invalid window coordinates: {window_coords}')
             return False
 
-        latitude_suits = cls.south_latitude <= bus.lat <= cls.north_latitude
-        longitude_suits = cls.west_longitude <= bus.lng <= cls.east_longitude
+        latitude_suits = self.south_latitude <= bus.lat <= self.north_latitude
+        longitude_suits = self.west_longitude <= bus.lng <= self.east_longitude
         bus_is_inside_window = latitude_suits and longitude_suits
         return bus_is_inside_window
 
-    @classmethod
-    def update(cls, south_lat, north_lat, west_lng, east_lng):
-        cls.south_latitude = south_lat
-        cls.north_latitude = north_lat
-        cls.west_longitude = west_lng
-        cls.east_longitude = east_lng
+    def update(self, south_lat, north_lat, west_lng, east_lng):
+        self.south_latitude = south_lat
+        self.north_latitude = north_lat
+        self.west_longitude = west_lng
+        self.east_longitude = east_lng
 
 
 class WindowBoundsSchema(Schema):
@@ -110,11 +108,11 @@ class WindowBoundsSchema(Schema):
 
         if data['west_lng'] >= data['east_lng']:
             raise ValidationError('west_lng should be less than east_lng')
-
-    @post_load
-    def update_window_bounds(self, window_bounds, **kwargs):
-        logger.debug(f'Update display bounds: {window_bounds}')
-        return WindowBounds.update(**window_bounds)
+    #
+    # @post_load
+    # def update_window_bounds(self, window_bounds, window, **kwargs):
+    #     logger.debug(f'Update display bounds: {window_bounds}')
+    #     return WindowBounds.update(**window_bounds)
 
 
 class BrowserMessageSchema(Schema):
@@ -167,10 +165,10 @@ async def handle_bus_coordinates(request):
         buses[bus.busId] = bus
 
 
-async def send_to_browser(websocket):
+async def send_to_browser(websocket, window_boundaries):
     while True:
         buses_on_screen = [
-            asdict(b) for b in buses.values() if WindowBounds.is_inside(b)
+            asdict(b) for b in buses.values() if window_boundaries.is_inside(b)
         ]
         logger.debug(f'Displayed bus number {len(buses_on_screen)}')
         message = {'msgType': 'Buses', 'buses': buses_on_screen}
@@ -184,7 +182,7 @@ async def send_to_browser(websocket):
         await trio.sleep(1)
 
 
-async def listen_browser(websocket):
+async def listen_browser(websocket, window_boundaries):
     browser_message_schema = BrowserMessageSchema()
     while True:
         try:
@@ -193,18 +191,26 @@ async def listen_browser(websocket):
         except ConnectionClosed:
             break
 
-        error, _ = parse_json_request(browser_message_schema, browser_message)
+        error, parsed_message = parse_json_request(
+            browser_message_schema,
+            browser_message
+        )
 
         if error:
             await websocket.send_message(json.dumps(error.error_dict()))
+            continue
+
+        window_coordinates = parsed_message['data']
+        window_boundaries.update(**window_coordinates)
 
 
 async def talk_with_browser(request):
     ws = await request.accept()
     logger.debug(f'New browser connection has been established')
+    window_boundaries = WindowBounds()
     async with trio.open_nursery() as nursery:
-        nursery.start_soon(send_to_browser, ws)
-        nursery.start_soon(listen_browser, ws)
+        nursery.start_soon(send_to_browser, ws, window_boundaries)
+        nursery.start_soon(listen_browser, ws, window_boundaries)
 
 
 async def run_server(bus_port, browser_port):
