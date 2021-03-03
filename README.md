@@ -24,11 +24,11 @@ This repository contains a server and its client simulating buses.
 The server receives bus locations and sends them to the frontend application.
 A linux command to run the server:
 ```shell
-python server.py --bus_port 8080 --browser_port 8000
+python server.py
 ```
 A linux command to run the client simulating buses:
 ```shell
-python fake_bus.py ws://127.0.0.1:8080 --route_number 2000 --buses_per_route 3
+python fake_bus.py ws://127.0.0.1:8080
 ```
 Open [index.html](https://github.com/devmanorg/buses-on-the-map/blob/master/index.html) 
 in Google Chrome.
