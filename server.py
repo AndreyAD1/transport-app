@@ -1,5 +1,4 @@
 from dataclasses import asdict, dataclass
-from functools import partial
 import json
 import logging
 
@@ -204,30 +203,26 @@ async def talk_with_browser(request):
     ws = await request.accept()
     logger.debug(f'New browser connection has been established')
     async with trio.open_nursery() as nursery:
-        sender = partial(send_to_browser, ws)
-        listener = partial(listen_browser, ws)
-        nursery.start_soon(sender)
-        nursery.start_soon(listener)
+        nursery.start_soon(send_to_browser, ws)
+        nursery.start_soon(listen_browser, ws)
 
 
 async def run_server(bus_port, browser_port):
     async with trio.open_nursery() as nursery:
-        coordinate_handler = partial(
+        nursery.start_soon(
             serve_websocket,
             handle_bus_coordinates,
             '127.0.0.1',
             bus_port,
             None
         )
-        browser_talker = partial(
+        nursery.start_soon(
             serve_websocket,
             talk_with_browser,
             '127.0.0.1',
             browser_port,
             None
         )
-        nursery.start_soon(coordinate_handler)
-        nursery.start_soon(browser_talker)
 
 
 @click.command()
