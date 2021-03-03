@@ -210,7 +210,7 @@ async def talk_with_browser(request):
         nursery.start_soon(listener)
 
 
-async def start_server(bus_port, browser_port):
+async def run_server(bus_port, browser_port):
     async with trio.open_nursery() as nursery:
         coordinate_handler = partial(
             serve_websocket,
@@ -255,7 +255,7 @@ def main(bus_port, browser_port, verbose):
     logger.setLevel(logging.INFO)
     if verbose:
         logger.setLevel(logging.DEBUG)
-    trio.run(start_server, bus_port, browser_port)
+    trio.run(run_server, bus_port, browser_port)
 
 
 if __name__ == '__main__':
