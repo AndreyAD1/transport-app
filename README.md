@@ -37,7 +37,7 @@ If everything works fine, a browser will display moving buses on a map.
 ![transport-app](presentation.gif)
 
 ## Tests
-A linux commands to run the tests:
+The linux commands to run the tests:
 ```shell
 pip install -r requirements-dev.txt
 pytest tests --server_host ws://127.0.0.1 --bus_port 8080 --browser_port 8000
